@@ -66,15 +66,19 @@ class BackboneBase(nn.Module):
             return_layers = {"layer1": "0", "layer2": "1", "layer3": "2", "layer4": "3"}
         else:
             return_layers = {'layer4': "0"}
+        # 从骨干网络（backbone）中提取指定中间层的输出 返回值是一个字典 
+        # 键（key）：是 return_layers 中定义的新名称 值（value）：是对应骨干网络层的输出张量（Tensor）
         self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
         self.num_channels = num_channels
 
     def forward(self, tensor_list: NestedTensor):
+        # 骨干网络的输入 tensor_list 是一个 NestedTensor 对象 包含图像tensor和对应的mask
         xs = self.body(tensor_list.tensors)
         out: Dict[str, NestedTensor] = {}
         for name, x in xs.items():
             m = tensor_list.mask
             assert m is not None
+            # 通过插值调整掩码的大小以匹配特征图的空间尺寸 从图像的尺寸变为特征图的尺寸
             mask = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
             out[name] = NestedTensor(x, mask)
         return out
@@ -86,6 +90,8 @@ class Backbone(BackboneBase):
                  train_backbone: bool,
                  return_interm_layers: bool,
                  dilation: bool):
+        # replace_stride_with_dilation 表示在ResNet的最后几个阶段是否使用膨胀卷积
+        # pretrained 仅在主线程中加载预训练权重，以避免多线程训练时的重复下载
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, dilation],
             pretrained=is_main_process(), norm_layer=FrozenBatchNorm2d)

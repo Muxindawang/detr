@@ -22,7 +22,11 @@ class Transformer(nn.Module):
                  activation="relu", normalize_before=False,
                  return_intermediate_dec=False):
         super().__init__()
-
+        # d_model：特征维度（默认512）
+        # nhead：多头注意力头数（默认8）
+        # num_encoder/decoder_layers：编码器/解码器层数（默认6）
+        # dim_feedforward：前馈网络维度（默认2048）
+        # normalize_before：是否使用 Pre-LN 结构
         encoder_layer = TransformerEncoderLayer(d_model, nhead, dim_feedforward,
                                                 dropout, activation, normalize_before)
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
@@ -49,13 +53,18 @@ class Transformer(nn.Module):
         bs, c, h, w = src.shape
         src = src.flatten(2).permute(2, 0, 1)
         pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
+        # 扩展查询嵌入：num_queries x batch_size x d_model
         query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
         mask = mask.flatten(1)
-
+        # 初始目标序列（全零），将与查询嵌入相加
         tgt = torch.zeros_like(query_embed)
         memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
         hs = self.decoder(tgt, memory, memory_key_padding_mask=mask,
                           pos=pos_embed, query_pos=query_embed)
+        
+        # 调整输出形状
+        # hs: [num_layers, batch_size, num_queries, d_model]
+        # memory: [batch_size, channels, height, width]
         return hs.transpose(1, 2), memory.permute(1, 2, 0).view(bs, c, h, w)
 
 
@@ -129,6 +138,7 @@ class TransformerEncoderLayer(nn.Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False):
         super().__init__()
+        # 自注意力
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -189,7 +199,9 @@ class TransformerDecoderLayer(nn.Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False):
         super().__init__()
+        # 自注意力机制（处理目标序列）
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # 交叉注意力机制（查询编码器输出）
         self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -216,6 +228,10 @@ class TransformerDecoderLayer(nn.Module):
                      memory_key_padding_mask: Optional[Tensor] = None,
                      pos: Optional[Tensor] = None,
                      query_pos: Optional[Tensor] = None):
+        # tgt 是目标序列，通常初始化为全零 可学习的对象查询 (Object Queries)
+        # memory 是编码器的输出
+        # query_pos 可学习的位置编码（
+        # pos 图像特征的位置编码
         q = k = self.with_pos_embed(tgt, query_pos)
         tgt2 = self.self_attn(q, k, value=tgt, attn_mask=tgt_mask,
                               key_padding_mask=tgt_key_padding_mask)[0]

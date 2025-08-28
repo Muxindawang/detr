@@ -305,6 +305,11 @@ class NestedTensor(object):
 
 
 def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
+    # 对于一个batch中的图像张量列表，应该保持其尺寸一致，因此选择最大的尺寸，对于较小的图像进行填充
+    # 记录填充的位置为掩码（mask）
+
+    # 将一个张量列表（List[Tensor]）转换为 NestedTensor 结构
+    # 掩码用于标记哪些区域是原始图像（False），哪些是填充区域（True）
     # TODO make this more general
     if tensor_list[0].ndim == 3:
         if torchvision._is_tracing():
@@ -323,6 +328,7 @@ def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
         mask = torch.ones((b, h, w), dtype=torch.bool, device=device)
         for img, pad_img, m in zip(tensor_list, tensor, mask):
             pad_img[: img.shape[0], : img.shape[1], : img.shape[2]].copy_(img)
+            # 图像放在左上角 有图像的区域为 False，填充区域为 True
             m[: img.shape[1], :img.shape[2]] = False
     else:
         raise ValueError('not supported')
