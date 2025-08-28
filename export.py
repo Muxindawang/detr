@@ -241,7 +241,7 @@ if __name__ == '__main__':
     # 执行模型简化
     simplified_model, check = simplify(
         model,
-        input_shapes={'inputs': [args.batch_size, 3, 800, 800]},  # 输入形状
+        test_input_shapes={'inputs': [args.batch_size, 3, 800, 800]},  # 输入形状
         dynamic_input_shape=args.dynamic_axes  # 是否动态输入形状
     )
 
