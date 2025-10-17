@@ -79,6 +79,7 @@ class HungarianMatcher(nn.Module):
 
         sizes = [len(v["boxes"]) for v in targets]
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
+        # 将每个样本的匹配索引转为PyTorch张量，返回格式：列表（长度=bs），每个元素是（预测框索引张量，真实框索引张量）
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
 
 

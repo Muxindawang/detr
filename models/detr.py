@@ -272,7 +272,7 @@ class PostProcess(nn.Module):
         assert len(out_logits) == len(target_sizes)
         assert target_sizes.shape[1] == 2
 
-        prob = F.softmax(out_logits, -1)
+        prob = F.softmax(out_logits, -1)        # 排除背景类（最后一维），取最大概率作为分数和对应类别
         scores, labels = prob[..., :-1].max(-1)
 
         # convert to [x0, y0, x1, y1] format
@@ -331,13 +331,16 @@ def build(args):
     )
     if args.masks:
         model = DETRsegm(model, freeze_detr=(args.frozen_weights is not None))
+    # # 构建匹配器（用于训练时将预测框与真实框匹配）
     matcher = build_matcher(args)
+    # # 损失权重配置
     weight_dict = {'loss_ce': 1, 'loss_bbox': args.bbox_loss_coef}
     weight_dict['loss_giou'] = args.giou_loss_coef
     if args.masks:
         weight_dict["loss_mask"] = args.mask_loss_coef
         weight_dict["loss_dice"] = args.dice_loss_coef
     # TODO this is a hack
+    # 若启用辅助损失（解码器中间层），为每个中间层损失分配权重
     if args.aux_loss:
         aux_weight_dict = {}
         for i in range(args.dec_layers - 1):
